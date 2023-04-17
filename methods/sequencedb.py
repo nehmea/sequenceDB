@@ -6,17 +6,25 @@ Date: 2023-04-14
 import uuid
 from mysql.connector import Error
 from methods import helpers
+import os
 
 
 class SequenceDb:
-    def __init__(self, host: str, username: str, password: str, database: str):
+    def __init__(
+        self,
+        host: str,
+        username: str,
+        password: str,
+        database: str,
+        local_filename: str,
+    ):
         """
         Connects to a specific
         The __init__ method creates a connection to the database and a "sequences" table if it does not already exist.
 
         parameters:
             host, username, password, database: used as arguments for to create a connection using create_connection() method.
-
+            local_filename: to store new sequences locally
         returns:
             None. It creates a connection attribute in Class SequenceDb.
         """
@@ -29,13 +37,24 @@ class SequenceDb:
                 "CREATE TABLE IF NOT EXISTS sequences (id VARCHAR(36) NOT NULL PRIMARY KEY, sequence TEXT NOT NULL UNIQUE)"
             )
             self.connection.commit()
+            self.localDB = local_filename
+            if not os.path.isfile(local_filename):
+                with open(local_filename, "w") as f:
+                    f.write("sequence_id,sequence\n")
         except Error as e:
-            print(f"{e}")
+            print(f"Database Error: {e}; rollback")
+            self.connection.rollback()
+
+    def __del__(self):
+        self.connection.close()
 
     @staticmethod
     def valid_sequence(sequence: str):
         """
         checks if the sequence is a valid DNA sequence that only include A,T,C or G.
+
+        returns:
+            True or False.
         """
         if isinstance(sequence, str):
             return set(sequence).issubset({"A", "C", "G", "T"})
@@ -63,21 +82,33 @@ class SequenceDb:
             return None
 
         # Check if sequence already exists in database
-        self.cursor.execute("SELECT id FROM sequences WHERE sequence = %s", (sequence,))
-        result = self.cursor.fetchone()
-        if result:
-            print(f"Sequence already exist in the DB")
-            return str(result[0])
-        else:
-            # Generate a unique identifier for the sequence
-            sequence_id = str(uuid.uuid4())
-            # Insert sequence into database
+        try:
             self.cursor.execute(
-                "INSERT INTO sequences (id, sequence) VALUES (%s, %s)",
-                (sequence_id, sequence),
+                "SELECT id FROM sequences WHERE sequence = %s", (sequence,)
             )
-            self.connection.commit()
+            result = self.cursor.fetchone()
+            if result:
+                print(f"Sequence already exist in the DB")
+                sequence_id = str(result[0])
+            else:
+                # Generate a unique identifier for the sequence
+                sequence_id = str(uuid.uuid4())
+                # Insert sequence into database
+                self.cursor.execute(
+                    "INSERT INTO sequences (id, sequence) VALUES (%s, %s)",
+                    (sequence_id, sequence),
+                )
+                self.connection.commit()
+
+                # local storage implementation
+                with open(self.localDB, "a") as file:
+                    file.write(f"{sequence_id},{sequence}\n")
+
             return sequence_id
+        except Error as error:
+            print(f"Failed to insert record to database: {error}; rollback")
+            # reverting changes because of exception
+            self.connection.rollback()
 
     def bulk_insert(self, sequence_list: list):
         """
@@ -178,6 +209,3 @@ class SequenceDb:
             return True
         else:
             return False
-
-    def close_connection(self):
-        self.connection.close()

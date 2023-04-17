@@ -2,7 +2,11 @@ from methods.sequencedb import SequenceDb
 
 # Create a SequenceDb object
 db = SequenceDb(
-    host="localhost", database="sequencedb", username="root", password="root2022"
+    host="localhost",
+    database="sequencedb",
+    username="root",
+    password="root2022",
+    local_filename="sequenceDB_local.csv",
 )
 
 # Insert a sequence into the database
@@ -44,6 +48,3 @@ for sequence, id in sequence_list_ids.items():
     print(f"{id}: {sequence}")
     is_overlap = db.overlap("GAGA", id)
     print(f"'{sequence}' (id = {id}): {is_overlap}")
-
-
-SequenceDb.close_connection(db)
