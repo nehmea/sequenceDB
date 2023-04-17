@@ -36,7 +36,6 @@ class SequenceDB:
 
             # create DB if not exist
             self.cursor = self.connection.cursor()
-            self.cursor.execute(f"CREATE DATABASE IF NOT EXISTS {database}")
             self.cursor.execute(
                 f"CREATE TABLE IF NOT EXISTS {database}.sequences (id VARCHAR(36) NOT NULL PRIMARY KEY, sequence TEXT NOT NULL)"
             )
