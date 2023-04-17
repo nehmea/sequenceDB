@@ -9,7 +9,7 @@ from methods import helpers
 import os
 
 
-class SequenceDb:
+class SequenceDB:
     def __init__(
         self,
         host: str,
@@ -22,40 +22,55 @@ class SequenceDb:
         Connects to a specific
         The __init__ method creates a connection to the database and a "sequences" table if it does not already exist.
 
-        parameters:
+        Arguments:
             host, username, password, database: used as arguments for to create a connection using create_connection() method.
             local_filename: to store new sequences locally
         returns:
             None. It creates a connection attribute in Class SequenceDb.
         """
         try:
+            # create connection
             self.connection = helpers.create_connection(
                 host, username, password, database
             )
+
+            # create DB if not exist
             self.cursor = self.connection.cursor()
+            self.cursor.execute(f"CREATE DATABASE IF NOT EXISTS {database}")
             self.cursor.execute(
-                "CREATE TABLE IF NOT EXISTS sequences (id VARCHAR(36) NOT NULL PRIMARY KEY, sequence TEXT NOT NULL UNIQUE)"
+                f"CREATE TABLE IF NOT EXISTS {database}.sequences (id VARCHAR(36) NOT NULL PRIMARY KEY, sequence TEXT NOT NULL)"
             )
             self.connection.commit()
+
+            # create local DB if not exist
             self.localDB = local_filename
             if not os.path.isfile(local_filename):
                 with open(local_filename, "w") as f:
                     f.write("sequence_id,sequence\n")
+
         except Error as e:
             print(f"Database Error: {e}; rollback")
             self.connection.rollback()
 
     def __del__(self):
+        """
+        Destructor method.
+        Called after an object's garbage collection occurs, which happens after all references to the item have been destroyed.
+        """
         self.connection.close()
 
     @staticmethod
-    def valid_sequence(sequence: str):
+    def is_valid_sequence(sequence: str):
         """
         checks if the sequence is a valid DNA sequence that only include A,T,C or G.
+
+        Arguments:
+            sequence: sequence to be validated
 
         returns:
             True or False.
         """
+        # check if input sequence is a string, then check if it only has A, C, G and T.
         if isinstance(sequence, str):
             return set(sequence).issubset({"A", "C", "G", "T"})
         else:
@@ -68,14 +83,14 @@ class SequenceDb:
         If the sequence does not exist in the database, a new unique identifier is generated using the uuid library,
         and the sequence is inserted into the database.
 
-        parameters:
+        Arguments:
             sequence: a string containing the DNA sequence.
 
         returns:
             sequence_id: string uuid.
         """
         # check if sequence is valid
-        if not self.valid_sequence(sequence):
+        if not self.is_valid_sequence(sequence):
             print(
                 f"Error: Invalid Sequence; sequences should only include A, T, C and G"
             )
@@ -105,6 +120,7 @@ class SequenceDb:
                     file.write(f"{sequence_id},{sequence}\n")
 
             return sequence_id
+
         except Error as error:
             print(f"Failed to insert record to database: {error}; rollback")
             # reverting changes because of exception
@@ -115,16 +131,18 @@ class SequenceDb:
         inserts multiple sequences if they don't exist in the DB.
         implements the insert method
 
-        parameters:
+        Arguments:
             sequence_list: kist of DNA sequences
 
         returns:
             dictionary: key = sequence; value = id
         """
+        # check if empty list
         if len(sequence_list) == 0:
             print(f"Error: list is empty")
             return None
 
+        # extract ids
         id_list = dict()
         for sequence in sequence_list:
             id_list[sequence] = self.insert(sequence)
@@ -134,7 +152,7 @@ class SequenceDb:
         """
         The get method retrieves a sequence from the database by its unique identifier.
 
-        parameters:
+        Arguments:
             sequence_id: uuid of the sequence to be retrieved.
 
         returns:
@@ -154,14 +172,14 @@ class SequenceDb:
         """
         The find method searches for sequences containing a specified sample sequence using the LIKE operator in SQL.
 
-        parameters:
+        Arguments:
             sample: sample sequence to find in the sequences in the database.
 
         returns:
             list of sequences or empty list.
         """
         # check if the sequence is valid
-        if not self.valid_sequence(sample):
+        if not self.is_valid_sequence(sample):
             print(
                 f"Error: Invalid Sequence; sequences should only include A, T, C and G"
             )
@@ -179,14 +197,22 @@ class SequenceDb:
         This method first checks if the sample and sequence are exact matches, or if one is contained within the other.
         If not, it checks for partial overlaps by comparing substrings of the sequence to the sample.
         If a partial overlap is found, the method returns True. If no overlap is found, it returns False.
+
+        Arguments:
+            sample: a sample sequence
+            sequence_id: id of sequence in the database to compare with
+
+        returns:
+            True or False
         """
         # check if the sample is valid
-        if not self.valid_sequence(sample):
+        if not self.is_valid_sequence(sample):
             print(
                 f"Error: Invalid Sequence; sequences should only include A, T, C and G"
             )
             return False
 
+        # get sequence from the DB
         db_sequence = self.get(sequence_id)
         if not db_sequence:
             print(f"sequence with id '{sequence_id}' does not exist in DB")

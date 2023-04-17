@@ -19,6 +19,11 @@ def create_connection(host, username, password, database):
     """
     connection = None
     try:
+        connection = mysql.connector.connect(host=host, user=username, passwd=password)
+        cursor = connection.cursor()
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {database}")
+        connection.commit()
+        connection.close()
         connection = mysql.connector.connect(
             host=host, user=username, passwd=password, database=database
         )
@@ -29,13 +34,19 @@ def create_connection(host, username, password, database):
     return connection
 
 
-def get_k_substrings(string: str, k: int = 2, with_repition=False):
+def get_k_substrings(string: str, k: int = 2):
+    """
+    Gets the list of substrings with length k from a string
+
+    Arguments:
+        string: string to extract substrings from
+        k: length of substrings
+
+    return:
+        set of unique substrings with length k
+    """
     # Extract K length substrings using for loop
     if len(string) <= k:
         return string
 
-    res = [string[i : i + k] for i in range(len(string) - k + 1)]
-    if with_repition:
-        return res
-    else:
-        return set(res)
+    return set([string[i : i + k] for i in range(len(string) - k + 1)])

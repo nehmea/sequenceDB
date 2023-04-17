@@ -1,7 +1,7 @@
-from methods.sequencedb import SequenceDb
+from methods.sequencedb import SequenceDB
 
-# Create a SequenceDb object
-db = SequenceDb(
+# Create a SequenceDB object
+db = SequenceDB(
     host="localhost",
     database="sequencedb",
     username="root",
