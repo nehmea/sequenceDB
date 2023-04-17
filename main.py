@@ -1,11 +1,15 @@
 from methods.sequencedb import SequenceDB
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Create a SequenceDB object
 db = SequenceDB(
-    host="localhost",
+    host=os.getenv("host"),
+    username=os.getenv("user"),
+    password=os.getenv("password"),
     database="sequencedb",
-    username="root",
-    password="root2022",
     local_filename="sequenceDB_local.csv",
 )
 

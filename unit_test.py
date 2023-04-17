@@ -1,15 +1,22 @@
 import unittest
 import mysql.connector
 from methods.sequencedb import SequenceDB
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+host = os.getenv("host")
+username = os.getenv("user")
+password = os.getenv("password")
 
 
 class TestSequenceDB(unittest.TestCase):
     def setUp(self):
         # Connect to the database
         self.seqdb = SequenceDB(
-            host="localhost",
-            username="root",
-            password="root2022",
+            host=os.getenv("host"),
+            username=username,
+            password=password,
             database="testdb",
             local_filename="test_sequenceDB_local.csv",
         )
@@ -57,9 +64,9 @@ class TestSequenceDB(unittest.TestCase):
 
         # create new connection and delete the test database
         self.db = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="root2022",
+            host=host,
+            user=username,
+            password=password,
         )
         cursor = self.db.cursor()
         cursor.execute("DROP DATABASE testdb")
