@@ -3,37 +3,9 @@ Developed by Ali Nehme
 Date: 2023-04-14
 """
 
-import mysql.connector
 import uuid
 from mysql.connector import Error
-import re
-
-
-def create_connection(host, username, password, database):
-    """
-    In this implementation, the mysql-connector-python library is used to connect to a MySQL database.
-    This module requires that MySQL be installed with available database for connection.
-
-    parameters:
-        host: host to connect
-        username: username to login
-        password: user password
-        database: database name
-
-    returns:
-        A connection to MySQL database, or None.
-
-    """
-    connection = None
-    try:
-        connection = mysql.connector.connect(
-            host=host, user=username, passwd=password, database=database
-        )
-        print("Connection to MySQL DB successful")
-    except Error as e:
-        print(f"The error '{e}' occurred")
-
-    return connection
+from methods import helpers
 
 
 class SequenceDb:
@@ -49,7 +21,9 @@ class SequenceDb:
             None. It creates a connection attribute in Class SequenceDb.
         """
         try:
-            self.connection = create_connection(host, username, password, database)
+            self.connection = helpers.create_connection(
+                host, username, password, database
+            )
             self.cursor = self.connection.cursor()
             self.cursor.execute(
                 "CREATE TABLE IF NOT EXISTS sequences (id VARCHAR(36) NOT NULL PRIMARY KEY, sequence TEXT NOT NULL UNIQUE)"
@@ -64,9 +38,9 @@ class SequenceDb:
         checks if the sequence is a valid DNA sequence that only include A,T,C or G.
         """
         if isinstance(sequence, str):
-            return not re.match(r"^[ATCG]*[^ATCG]+[ATCG]*", sequence)
+            return set(sequence).issubset({"A", "C", "G", "T"})
         else:
-            print(f"'{sequence}' is not as string")
+            print(f"'{sequence}' is not a string")
             return False
 
     def insert(self, sequence: str):
@@ -81,13 +55,14 @@ class SequenceDb:
         returns:
             sequence_id: string uuid.
         """
-        # Check if sequence already exists in database
+        # check if sequence is valid
         if not self.valid_sequence(sequence):
             print(
                 f"Error: Invalid Sequence; sequences should only include A, T, C and G"
             )
             return None
 
+        # Check if sequence already exists in database
         self.cursor.execute("SELECT id FROM sequences WHERE sequence = %s", (sequence,))
         result = self.cursor.fetchone()
         if result:
@@ -155,6 +130,11 @@ class SequenceDb:
             list of sequences or empty list.
         """
         # check if the sequence is valid
+        if not self.valid_sequence(sample):
+            print(
+                f"Error: Invalid Sequence; sequences should only include A, T, C and G"
+            )
+            return []
 
         # Search for sequences containing the sample sequence
         self.cursor.execute(
@@ -162,6 +142,42 @@ class SequenceDb:
         )
         results = self.cursor.fetchall()
         return [str(result[0]) for result in results]
+
+    def overlap(self, sample, sequence_id):
+        """
+        This method first checks if the sample and sequence are exact matches, or if one is contained within the other.
+        If not, it checks for partial overlaps by comparing substrings of the sequence to the sample.
+        If a partial overlap is found, the method returns True. If no overlap is found, it returns False.
+        """
+        # check if the sample is valid
+        if not self.valid_sequence(sample):
+            print(
+                f"Error: Invalid Sequence; sequences should only include A, T, C and G"
+            )
+            return False
+
+        db_sequence = self.get(sequence_id)
+        if not db_sequence:
+            print(f"sequence with id '{sequence_id}' does not exist in DB")
+            return False
+
+        # check if they are the same sequence
+        if sample == db_sequence:
+            return True
+
+        # check if one sequence is a subset of the other one
+        if sample in db_sequence or db_sequence in sample:
+            return True
+
+        # Get all subsequences of length >= 2 for both sample and DB sequence
+        sample_subsequences = helpers.get_k_substrings(sample, 2)
+        sequence_subsequences = helpers.get_k_substrings(db_sequence, 2)
+
+        # Check if there is any overlap between the two sets of substrings
+        if sample_subsequences.intersection(sequence_subsequences):
+            return True
+        else:
+            return False
 
     def close_connection(self):
         self.connection.close()

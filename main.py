@@ -37,4 +37,13 @@ print(f"Found sequences: {found_sequences_1}")
 found_sequences_2 = db.find("CGC")
 print(f"Found sequences: {found_sequences_2}")
 
+
+## test overlap method
+reference_ids = list(sequence_list_ids.values())
+for sequence, id in sequence_list_ids.items():
+    print(f"{id}: {sequence}")
+    is_overlap = db.overlap("GAGA", id)
+    print(f"'{sequence}' (id = {id}): {is_overlap}")
+
+
 SequenceDb.close_connection(db)
